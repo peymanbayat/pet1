@@ -2,7 +2,7 @@ cython
 pycocotools
 matplotlib
 numpy
-torch==1.6.0
+torch==1.7.1
 torchvision==0.7.0
 streamlit==0.62.0
 albumentations==0.4.6
