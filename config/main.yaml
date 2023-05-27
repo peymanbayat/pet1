@@ -1,0 +1,139 @@
+model:
+  backbone_kind: resnet50
+  num_classes: 37
+  freeze_bn: True
+  min_size: 800
+  max_size: 1600
+
+# hparams are passed to the LightningModule
+hparams:
+  train_csv: data/train.csv
+  train_batch_size: 2
+
+  valid_csv: data/valid.csv
+  valid_batch_size: 32
+
+  test_csv: data/test.csv
+  test_batch_size: 32
+
+  iou_types: bbox
+
+  # pytorch dataloader arguments
+  dataloader:
+    pin_memory: True
+    num_workers: 0
+
+  # [Optimizer]:
+  # to use different optimzer modify optimzier.class_name to torch.optim.{some optimizer}
+  # optimizer arguments are passes under params
+  optimizer:
+    class_name: torch.optim.SGD
+    params:
+      lr: 0.003
+      weight_decay: 0.0001
+      momentum: 0.9
+
+  # [Scheduler]:
+  # NB: if scheduler needs to be called after each `epoch` set `interval` to `epoch`
+  # for callinf scheduler after every epoch set `interval` to `step`.
+  # Frequency deterimines the number of times the scheduler shold be called
+  # during a single training pass
+  scheduler:
+    class_name: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    params:
+      T_0: 10
+      T_mult: 2
+    interval: step
+    frequency: 1
+
+  # Albumentation Augmentations for train, validation and test datasets
+  # to use different or add augments just add or modify a new `class_name`
+  # which corresponds to the class name of the augments. And specify
+  # the augments parameters under params.
+  augmentation:
+    train:
+      - class_name: albumentations.HorizontalFlip
+        params:
+          p: 0.5
+
+      - class_name: albumentations.ToGray
+        params:
+          p: 0.25
+
+      - class_name: albumentations.CLAHE
+        params:
+          p: 0.5
+
+      - class_name: albumentations.ToFloat
+        params:
+          always_apply: True
+          max_value: 255.0
+
+      - class_name: albumentations.pytorch.transforms.ToTensorV2
+        params:
+          always_apply: True
+
+    valid:
+      - class_name: albumentations.ToFloat
+        params:
+          always_apply: True
+          max_value: 255.0
+
+      - class_name: albumentations.pytorch.transforms.ToTensorV2
+        params:
+          always_apply: True
+
+    test:
+      - class_name: albumentations.ToFloat
+        params:
+          always_apply: True
+          max_value: 255.0
+
+      - class_name: albumentations.pytorch.transforms.ToTensorV2
+        params:
+          always_apply: True
+
+# These arguments are passed down to the lightning Trainer
+# add arguments to trainer.flags to pass these down directly to
+# the lightning trainer
+# to modify callbacks like `early_stopping`, `model_checkpoint`
+# `learning_rate` monitor change their parameters.
+# change the Logger by changing the trainer.logger.class_name to the
+# class name of the logger you want to use.
+# NB: model weights after train end are saved at
+# trainer.model_chckpoint.filepath as `weights.pt` which is a pytorch state dict
+trainer:
+  flags:
+    gpus: 1
+    max_epochs: 50
+    check_val_every_n_epoch: 1
+    precision: 16
+    terminate_on_nan: True
+    benchmark: True
+    num_sanity_val_steps: 0
+
+  early_stopping:
+    class_name: pytorch_lightning.EarlyStopping
+    params:
+      mode: min
+      monitor: val_loss
+      patience: 12
+
+  model_checkpoint:
+    class_name: pytorch_lightning.callbacks.ModelCheckpoint
+    params:
+      filepath: checkpoints/
+      mode: min
+      monitor: val_loss
+      save_top_k: 4
+      verbose: false
+
+  learning_rate_monitor:
+    class_name: pytorch_lightning.callbacks.LearningRateLogger
+    params:
+      logging_interval: step
+
+  logger:
+    class_name: pytorch_lightning.loggers.tensorboard.TensorBoardLogger
+    params:
+      save_dir: logs/
